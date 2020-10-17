@@ -1,0 +1,9 @@
+int main() (( )) {
+	int b = 1;
+	float b = 2.22;
+	a > b
+	b < a
+	a >= b
+	b <= a
+	return };
+}
