@@ -38,17 +38,20 @@ static const bool (*__lex_trans_funct__[11][11])(char *) = {
 };
 
 static struct lex_buffer __lexem__ = {0};
-static int next_symbol = true;
+static struct lex_buffer __token__ = {0};
+static struct lex_tokens __tokens_list__ = {0};
+static int __next_symbol__ = true;
+static int __line__ = 1;
 
-int lex_tokenize(char *buffer, long long int buff_size, char **tokens, int *err_line) {
-	int curr_state = 0, accepted, line = 1;
+int lex_tokenize(char *buffer, long long int buff_size, struct lex_tokens **tokens, int *err_line) {
+	int curr_state = 0, accepted;
 	char sym[2] = {0};
 	bool (*f)(char *) = NULL;
 	
 	*err_line = 0;
 	for(int i = 0; i < buff_size;) {
 		if(buffer[i] == '\n') {
-			line++;
+			__line__++;
 		}
 		sym[0] = buffer[i];
 		accepted = false;
@@ -63,13 +66,16 @@ int lex_tokenize(char *buffer, long long int buff_size, char **tokens, int *err_
 			}
 		}
 		if(!accepted) {
-			*err_line = line;
+			*err_line = __line__;
+			*tokens = NULL;
 			return 1;
 		}
-		if(next_symbol) {
+		if(__next_symbol__) {
 			i++;
 		}
 	}
+	*err_line = -1;
+	*tokens = &__tokens_list__;
 	return 0;
 }
 
@@ -92,7 +98,7 @@ bool lex_is_number(char *sym) {
 }
 
 bool lex_is_symbol(char *sym) {
-	for(int i = 0; i < 14; i++) {
+	for(int i = 0; i < 16; i++) {
         if(!strcmp(sym, __symbol__[i])) {
             return true;
         }
@@ -100,152 +106,215 @@ bool lex_is_symbol(char *sym) {
 	return false;
 }
 
+void lex_add_to_lexem(char *sym) {
+	if(__lexem__.n != LEXEM_MAX_SIZE - 1) {
+		__lexem__.buffer[__lexem__.n++] = sym[0];
+	}
+}
+
+void lex_flush_to_list() {
+	__tokens_list__.lexems[__tokens_list__.n] = __lexem__;
+	__tokens_list__.tokens[__tokens_list__.n] = __token__;
+	__tokens_list__.lines[__tokens_list__.n] = __line__;
+	__tokens_list__.n++;
+
+	struct lex_buffer empty = {0};
+	__lexem__ = empty;
+	__token__ = empty;
+}
+
+void lex_id_or_keyword_set_token() {
+	__token__.n = __lexem__.n;
+	if(!strcmp(__lexem__.buffer, MAIN)) { memcpy(__token__.buffer, ToKEN(MAIN), __token__.n); return; }
+	else if(!strcmp(__lexem__.buffer, INT)) { memcpy(__token__.buffer, ToKEN(INT), __token__.n); return; }
+	else if(!strcmp(__lexem__.buffer, FLOAT)) { memcpy(__token__.buffer, ToKEN(FLOAT), __token__.n); return; }
+	else if(!strcmp(__lexem__.buffer, IF)) { memcpy(__token__.buffer, ToKEN(IF), __token__.n); return; }
+	else if(!strcmp(__lexem__.buffer, ELSE)) { memcpy(__token__.buffer, ToKEN(ELSE), __token__.n); return; }
+	else if(!strcmp(__lexem__.buffer, WHILE)) { memcpy(__token__.buffer, ToKEN(WHILE), __token__.n); return; }
+	else if(!strcmp(__lexem__.buffer, FOR)) { memcpy(__token__.buffer, ToKEN(FOR), __token__.n); return; }
+	else if(!strcmp(__lexem__.buffer, READ)) { memcpy(__token__.buffer, ToKEN(READ), __token__.n); return; }
+	else if(!strcmp(__lexem__.buffer, PRINT)) { memcpy(__token__.buffer, ToKEN(PRINT), __token__.n); return; }
+	__token__.n = 2;
+	memcpy(__token__.buffer, "ID", __token__.n);
+}
+
+void lex_set_token(char *token) {
+	__token__.n = strlen(token);
+	memcpy(__token__.buffer, token, __token__.n);
+}
+
+
 bool _0_0(char *sym) {
-	next_symbol = true;
-	if(!strcmp(sym, COMMA)) { printf("0->0 %s %d COMMA\n", sym, 1); return true; }
-	else if(!strcmp(sym, PCOMMA)) { printf("0->0 %s %d PCOMMA\n", sym, 1); return true; }
-	else if(!strcmp(sym, LBRACE)) { printf("0->0 %s %d LBRACE\n", sym, 1); return true; }
-	else if(!strcmp(sym, RBRACE)) { printf("0->0 %s %d RBRACE\n", sym, 1); return true; }
-	else if(!strcmp(sym, LBRACKET)) { printf("0->0 %s %d LBRACKET\n", sym, 1); return true; }
-	else if(!strcmp(sym, RBRACKET)) { printf("0->0 %s %d RBRACKET\n", sym, 1); return true; }
-	else if(!strcmp(sym, LCOL)) { printf("0->0 %s %d LCOL\n", sym, 1); return true; }
-	else if(!strcmp(sym, RCOL)) { printf("0->0 %s %d RCOL\n", sym, 1); return true; }
-	else if(!strcmp(sym, PLUS)) { printf("0->0 %s %d PLUS\n", sym, 1); return true; }
-	else if(!strcmp(sym, MINUS)) { printf("0->0 %s %d MINUS\n", sym, 1); return true; }
-	else if(!strcmp(sym, MULT)) { printf("0->0 %s %d MULT\n", sym, 1); return true; }
-	else if(!strcmp(sym, DIV)) { printf("0->0 %s %d DIV\n", sym, 1); return true; }
-	else if(!strcmp(sym, "\n") || !strcmp(sym, " ") || !strcmp(sym, "\t")) { printf("0->0 %s %d\n", sym, !strcmp(sym, "\n") || !strcmp(sym, " ") || !strcmp(sym, "\t")); return true; }
-    return false;
+	__next_symbol__ = true;
+	bool accepted = true;
+	bool flush = true;
+	if(!strcmp(sym, COMMA)) lex_set_token(ToKEN(COMMA));
+	else if(!strcmp(sym, PCOMMA)) lex_set_token(ToKEN(PCOMMA));
+	else if(!strcmp(sym, LBRACE)) lex_set_token(ToKEN(LBRACE));
+	else if(!strcmp(sym, RBRACE)) lex_set_token(ToKEN(RBRACE));
+	else if(!strcmp(sym, LBRACKET)) lex_set_token(ToKEN(LBRACKET));
+	else if(!strcmp(sym, RBRACKET)) lex_set_token(ToKEN(RBRACKET));
+	else if(!strcmp(sym, LCOL)) lex_set_token(ToKEN(LCOL));
+	else if(!strcmp(sym, RCOL)) lex_set_token(ToKEN(RCOL));
+	else if(!strcmp(sym, PLUS)) lex_set_token(ToKEN(PLUS));
+	else if(!strcmp(sym, MINUS)) lex_set_token(ToKEN(MINUS));
+	else if(!strcmp(sym, MULT)) lex_set_token(ToKEN(MULT));
+	else if(!strcmp(sym, DIV)) lex_set_token(ToKEN(DIV));
+	else if(!strcmp(sym, "\n") || !strcmp(sym, " ") || !strcmp(sym, "\t")) flush = false;
+	else accepted = false;
+
+	if(flush && accepted) {
+		lex_add_to_lexem(sym);
+		lex_flush_to_list();
+	}
+    return accepted;
 }
 
 bool _0_1(char *sym) {
-	next_symbol = true;
-	printf("0->1 %s %d\n", sym, lex_is_letter(sym));
-	return lex_is_letter(sym);
+	__next_symbol__ = true;
+	if(lex_is_letter(sym)) { 
+		lex_add_to_lexem(sym); 
+		return true; 
+	}
+	return false;
 }
 
 bool _0_2(char *sym) {
-	next_symbol = true;
-	printf("0->2 %s %d\n", sym, lex_is_number(sym));
-	return lex_is_number(sym);
+	__next_symbol__ = true;
+	if(lex_is_number(sym)) { 
+		lex_add_to_lexem(sym); 
+		return true; 
+	}
+	return false;
 }
 
 bool _0_5(char *sym) {
-	next_symbol = true;
-	printf("0->5 %s %d\n", sym, !strcmp(sym, LT));
+	__next_symbol__ = true;
 	if(!strcmp(sym, LT)) {
+		lex_add_to_lexem(sym);
 		return true;
 	}
 	return false;
 }
 
 bool _0_6(char *sym) {
-	next_symbol = true;
-	printf("0->6 %s %d\n", sym, !strcmp(sym, GT));
+	__next_symbol__ = true;
 	if(!strcmp(sym, GT)) {
+		lex_add_to_lexem(sym);
 		return true;
 	}
 	return false;
 }
 
 bool _0_7(char *sym) {
-	next_symbol = true;
-	printf("0->7 %s %d\n", sym, !strcmp(sym, ATTR));
+	__next_symbol__ = true;
 	if(!strcmp(sym, ATTR)) {
+		lex_add_to_lexem(sym);
 		return true;
 	}
 	return false;
 }
 
 bool _0_8(char *sym) {
-	next_symbol = true;
+	__next_symbol__ = true;
 	if(!strcmp(sym, "!")) {
-		printf("0->8 %s %d\n", sym, 1);
+		lex_add_to_lexem(sym);
 		return true;
 	}
 	return false;
 }
 
 bool _0_9(char *sym) {
-	next_symbol = true;
+	__next_symbol__ = true;
 	if(!strcmp(sym, "&")) {
-		printf("0->9 %s %d\n", sym, 1);
+		lex_add_to_lexem(sym);
 		return true;
 	}
 	return false;
 }
 
 bool _0_10(char *sym) {
-	next_symbol = true;
+	__next_symbol__ = true;
 	if(!strcmp(sym, "|")) {
-		printf("0->10 %s %d\n", sym, 1);
+		lex_add_to_lexem(sym);
 		return true;
 	}
 	return false;
 }
 
 bool _1_0(char *sym) {
-	next_symbol = false;
-	printf("1->0 %s %d id ou palavra reservada\n", sym, !lex_is_letter(sym) && !lex_is_number(sym));
+	__next_symbol__ = false;
 	if(!lex_is_letter(sym) && !lex_is_number(sym)) {
 		//token ID ou palavra reservada
+		lex_id_or_keyword_set_token();
+		lex_flush_to_list();
 		return true;
 	}
 	return false;
 }
 
 bool _1_1(char *sym) {
-	next_symbol = true;
-	printf("1->1 %s %d\n", sym, lex_is_letter(sym) || lex_is_number(sym));
-	bool accepted = lex_is_letter(sym) ? true : lex_is_number(sym);
-	if(accepted) {
-		__lexem__.buffer[__lexem__.n++] = sym[0];
+	__next_symbol__ = true;
+	if(lex_is_letter(sym) || lex_is_number(sym)) {
+		lex_add_to_lexem(sym);
+		return true;
 	}
-	return accepted;
+	return false;
 }
 
 bool _2_0(char *sym) {
-	next_symbol = false;
-	printf("2->0 %s %d INT_CONST\n", sym, !lex_is_number(sym) && strcmp(sym, "."));
+	__next_symbol__ = false;
 	if(!lex_is_number(sym) && strcmp(sym, ".")) {
 		//token INTEGER_CONST
+		lex_set_token("INTEGER_CONST");
+		lex_flush_to_list();
 		return true;
 	}
 	return false;
 }
 
 bool _2_2(char *sym) {
-	next_symbol = true;
-	printf("2->2 %s %d\n", sym, lex_is_number(sym));
-	return lex_is_number(sym);
+	__next_symbol__ = true;
+	if(lex_is_number(sym)) {
+		lex_add_to_lexem(sym);
+		return true;
+	}
+	return false;
 }
 
 bool _2_3(char *sym) {
-	next_symbol = true;
-	printf("2->3 %s %d\n", sym, !strcmp(sym, "."));
+	__next_symbol__ = true;
 	if(!strcmp(sym, ".")) {
+		lex_add_to_lexem(sym);
 		return true;
 	}
 	return false;
 }
 
 bool _3_4(char *sym) {
-	next_symbol = true;
-	printf("3->4 %s %d\n", sym, lex_is_number(sym));
-	return lex_is_number(sym);
+	__next_symbol__ = true;
+	if(lex_is_number(sym)) {
+		lex_add_to_lexem(sym);
+		return true;
+	}
+	return false;
 }
 
 bool _4_4(char *sym) {
-	next_symbol = true;
-	printf("4->4 %s %d\n", sym, lex_is_number(sym));
-	return lex_is_number(sym);
+	__next_symbol__ = true;
+	if(lex_is_number(sym)) {
+		lex_add_to_lexem(sym);
+		return true;
+	}
+	return false; 
 }
 
 bool _4_0(char *sym) {
-	next_symbol = false;
-	printf("4->0 %s %d FLOAT_CONST\n", sym, !lex_is_number(sym));
+	__next_symbol__ = false;
 	if(!lex_is_number(sym)) {
 		//token FLOAT_CONST
+		lex_set_token("FLOAT_CONST");
+		lex_flush_to_list();
 		return true;
 	}
 	return false;
@@ -253,64 +322,80 @@ bool _4_0(char *sym) {
 
 bool _5_0(char *sym) {
 	if(!strcmp(sym, ATTR)) {
-		printf("5->0 %s %d LE\n", sym, 1);
 		//token LE
+		__next_symbol__ = true;
+		lex_add_to_lexem(sym);
+		lex_set_token(ToKEN(LE));
 	} else {
-		printf("5->0 %s %d LT\n", sym, 1);
 		//token LT
+		__next_symbol__ = false;
+		lex_set_token(ToKEN(LT));
 	}
+	lex_flush_to_list();
 	return true;
 }
 
 bool _6_0(char *sym) {
 	if(!strcmp(sym, ATTR)) {
-		printf("6->0 %s %d GE\n", sym, 1);
 		//token GE
+		__next_symbol__ = true;
+		lex_add_to_lexem(sym);
+		lex_set_token(ToKEN(GE));
 	} else {
-		printf("6->0 %s %d GT\n", sym, 1);
 		//token GT
+		__next_symbol__ = false;
+		lex_set_token(ToKEN(GT));
 	}
+	lex_flush_to_list();
 	return true;
 }
 
 bool _7_0(char *sym) {
 	if(!strcmp(sym, ATTR)) {
-		next_symbol = true;
-		printf("7->0 %s %d EQ\n", sym, 1);
 		//token EQ
+		__next_symbol__ = true;
+		lex_add_to_lexem(sym);
+		lex_set_token(ToKEN(EQ));
 	} else {
-		next_symbol = false;
-		printf("7->0 %s %d ATTR\n", sym, 1);
 		//token ATTR
+		__next_symbol__ = false;
+		lex_set_token(ToKEN(ATTR));
 	}
+	lex_flush_to_list();
 	return true;
 }
 
 bool _8_0(char *sym) {
-	next_symbol = true;
+	__next_symbol__ = true;
 	if(!strcmp(sym, ATTR)) {
-		printf("8->0 %s %d NE\n", sym, 1);
 		//token NE
+		lex_add_to_lexem(sym);
+		lex_set_token(ToKEN(NE));
+		lex_flush_to_list();
 		return true;
 	}
 	return false;
 }
 
 bool _9_0(char *sym) {
-	next_symbol = true;
+	__next_symbol__ = true;
 	if(!strcmp(sym, "&")) {
-		printf("9->0 %s %d AND\n", sym, 1);
 		//token AND
+		lex_add_to_lexem(sym);
+		lex_set_token(ToKEN(AND));
+		lex_flush_to_list();
 		return true;
 	}
 	return false;
 }
 
 bool _10_0(char *sym) {
-	next_symbol = true;
+	__next_symbol__ = true;
 	if(!strcmp(sym, "|")) {
-		printf("10->0 %s %d OR\n", sym, 1);
 		//token OR
+		lex_add_to_lexem(sym);
+		lex_set_token(ToKEN(OR));
+		lex_flush_to_list();
 		return true;
 	}
 	return false;
